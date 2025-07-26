@@ -1,15 +1,26 @@
-import Sidebar from "@/components/sidebar/sidebar"
+import { auth } from "@clerk/nextjs/server"
+import { redirect } from "next/navigation"
+import ChatInterface from "@/components/chat/chat-interface"
+import SetupPage from "@/components/setup-page"
 
-export default function ChatRootPage() {
-  return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <h1 className="text-4xl font-semibold mb-4 text-foreground">Start a new chat</h1>
-          <p className="text-muted-foreground">Select a conversation or create a new one to begin chatting.</p>
-        </div>
-      </div>
-    </div>
-  )
+export default async function ChatPage() {
+  // Check if Clerk is configured
+  const hasClerkKeys = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+  if (!hasClerkKeys) {
+    return <SetupPage />
+  }
+
+  try {
+    const { userId } = await auth()
+
+    if (!userId) {
+      redirect("/sign-in")
+    }
+
+    return <ChatInterface />
+  } catch (error) {
+    // If auth fails due to missing keys, show setup page
+    return <SetupPage />
+  }
 }

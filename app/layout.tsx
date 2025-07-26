@@ -23,7 +23,18 @@ function ConditionalClerkProvider({ children }: { children: React.ReactNode }) {
     return <>{children}</>
   }
 
-  return <ClerkProvider>{children}</ClerkProvider>
+  return (
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      afterSignInUrl="/chat"
+      afterSignUpUrl="/chat"
+      afterSignOutUrl="/"
+    >
+      {children}
+    </ClerkProvider>
+  )
 }
 
 export default function RootLayout({
@@ -34,12 +45,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ClerkProvider>
+        <ConditionalClerkProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             {children}
             <Toaster />
           </ThemeProvider>
-        </ClerkProvider>
+        </ConditionalClerkProvider>
       </body>
     </html>
   )

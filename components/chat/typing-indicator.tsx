@@ -1,22 +1,33 @@
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
 interface TypingIndicatorProps {
   message?: string
 }
 
 export default function TypingIndicator({ message = "AI is thinking..." }: TypingIndicatorProps) {
   return (
-    <div className="flex gap-4">
-      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
-        AI
-      </div>
-      <div className="bg-muted rounded-2xl px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            <div className="w-2 h-2 bg-muted-foreground rounded-full typing-dot"></div>
-            <div className="w-2 h-2 bg-muted-foreground rounded-full typing-dot"></div>
-            <div className="w-2 h-2 bg-muted-foreground rounded-full typing-dot"></div>
+    <div 
+      className="flex items-center gap-4 p-4"
+      role="status"
+      aria-live="polite"
+      aria-label="AI is responding"
+    >
+      <Avatar className="h-8 w-8">
+        <AvatarImage src="/placeholder-logo.png" alt="AI" />
+        <AvatarFallback>AI</AvatarFallback>
+      </Avatar>
+      
+      <div className="flex-1">
+        <div className="bg-muted rounded-2xl px-4 py-3 max-w-[200px]">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
           </div>
-          <span className="text-sm text-muted-foreground">{message}</span>
         </div>
+        <p className="text-xs text-muted-foreground mt-2" aria-label="Status message">
+          {message}
+        </p>
       </div>
     </div>
   )

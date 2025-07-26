@@ -4,13 +4,12 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Search, Library, Settings, MessageSquare, MoreHorizontal, Edit2, Trash2, Menu, Check, X } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Plus, Search, Library, Settings, MessageSquare, MoreHorizontal, Edit2, Trash2, Menu, Check, X, Sun, Moon, Laptop, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { UserButton, useUser, useClerk } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
-import { Sun, Moon, Laptop } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Conversation {
@@ -23,10 +22,10 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState("")
+  const [currentConversationId, setCurrentConversationId] = useState<string>("")
   const router = useRouter()
   const { user } = useUser()
   const { signOut } = useClerk()
@@ -38,10 +37,44 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
     fetchConversations()
   }, [])
 
-  // Close sidebar when route changes (mobile)
+  // Clean up any redirect_url parameters on mount
   useEffect(() => {
-    setSidebarOpen(false)
-  }, [router])
+    if (typeof window !== 'undefined' && window.location.search.includes('redirect_url')) {
+      // Remove redirect_url parameter and clean the URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete('redirect_url')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
+
+  // Set current conversation ID based on URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname
+      const match = path.match(/\/chat\/([^\/]+)/)
+      if (match) {
+        setCurrentConversationId(match[1])
+      }
+    }
+  }, [])
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark')
+  }
+
+  const handleSignOut = async () => {
+    try {
+      // Sign out without any redirect parameters
+      await signOut()
+      
+      // Force a clean redirect to landing page
+      window.location.replace('/')
+    } catch (error) {
+      console.error('Sign out error:', error)
+      // Fallback: force redirect to landing page
+      window.location.replace('/')
+    }
+  }
 
   const fetchConversations = async () => {
     setIsLoading(true)
@@ -79,8 +112,9 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
   }
 
   const handleConversationClick = (conversationId: string) => {
+    setCurrentConversationId(conversationId)
     router.push(`/chat/${conversationId}`)
-    setSidebarOpen(false)
+    // setSidebarOpen(false) // Removed as per edit hint
   }
 
   const handleDeleteConversation = async (conversationId: string) => {
@@ -159,24 +193,21 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
     conv.title?.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  // Responsive sidebar classes
-  const sidebarClass = cn(
-    "fixed z-50 top-0 left-0 w-80 bg-background border-r border-border flex flex-col h-full transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:h-screen lg:z-auto",
-    sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-  )
-
   // Prevent hydration mismatch by not rendering theme-dependent content until mounted
   if (!mounted) {
     return (
-      <div className={sidebarClass}>
+      <div className="flex flex-col h-full bg-muted/30 border-r border-border">
         <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-semibold">ChatGPT</h1>
-            <Button variant="outline" size="sm">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center" aria-hidden="true">
+              <MessageSquare className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold">ChatGPT</span>
+            <Button variant="ghost" size="sm" className="ml-auto h-6 px-2 text-xs">
               Get Plus
             </Button>
           </div>
-          <Button className="w-full justify-start gap-2 bg-transparent" variant="outline" disabled>
+          <Button className="w-full justify-start gap-2" disabled>
             <Plus className="h-4 w-4" />
             New chat
           </Button>
@@ -188,129 +219,175 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
     )
   }
 
-  return (
-    <>
-      {/* Hamburger for mobile */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm border border-border shadow-lg"
-        onClick={() => setSidebarOpen((v) => !v)}
-      >
-        <Menu className="h-5 w-5" />
-      </Button>
-      
-      {/* Dark overlay for mobile */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" 
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-      
-      <div className={sidebarClass}>
-        {/* Header */}
+  // If user is not authenticated, show a simple loading state
+  if (!user) {
+    return (
+      <div className="flex flex-col h-full bg-muted/30 border-r border-border">
         <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-lg font-semibold">ChatGPT</h1>
-            <Button variant="outline" size="sm">
-              Get Plus
-            </Button>
-          </div>
-
-          <Button onClick={handleNewChat} className="w-full justify-start gap-2 bg-transparent" variant="outline" disabled={isLoading}>
-            <Plus className="h-4 w-4" />
-            New chat
-          </Button>
-        </div>
-
-        {/* Search */}
-        <div className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search chats"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div className="px-4 space-y-1">
-          <Button variant="ghost" className="w-full justify-start gap-2">
-            <Library className="h-4 w-4" />
-            Library
-          </Button>
-        </div>
-
-        {/* Conversations */}
-        <div className="flex-1 px-4 py-2 overflow-y-auto">
-          <div className="text-xs font-medium text-muted-foreground mb-2 px-2">Chats</div>
-          <ScrollArea className="h-full">
-            <div className="space-y-1">
-              {filteredConversations.map((conversation) => (
-                <ConversationItem
-                  key={conversation._id}
-                  conversation={conversation}
-                  onClick={() => handleConversationClick(conversation._id)}
-                  onDelete={handleDeleteConversation}
-                  onRename={startEditing}
-                  isEditing={editingId === conversation._id}
-                  editTitle={editTitle}
-                  setEditTitle={setEditTitle}
-                  onSaveEdit={saveEdit}
-                  onCancelEdit={cancelEditing}
-                />
-              ))}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center" aria-hidden="true">
+              <MessageSquare className="w-5 h-5 text-primary-foreground" />
             </div>
-          </ScrollArea>
+            <span className="text-xl font-bold">ChatGPT</span>
+          </div>
         </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-muted-foreground">Please sign in to continue</div>
+        </div>
+      </div>
+    )
+  }
 
-        {/* Footer */}
-        <div className="p-4 border-t border-border space-y-2">
-          <Button variant="ghost" className="w-full justify-start gap-2">
+  return (
+    <div className="flex flex-col h-full bg-muted/30 border-r border-border">
+      {/* Header */}
+      <div className="p-4 border-b border-border">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center" aria-hidden="true">
+            <MessageSquare className="w-5 h-5 text-primary-foreground" />
+          </div>
+          <span className="text-xl font-bold">ChatGPT</span>
+          <Button variant="ghost" size="sm" className="ml-auto h-6 px-2 text-xs">
+            Get Plus
+          </Button>
+        </div>
+        
+        <Button 
+          onClick={handleNewChat} 
+          className="w-full justify-start gap-2"
+          aria-label="Start a new conversation"
+        >
+          <Plus className="h-4 w-4" />
+          New chat
+        </Button>
+        
+        <div className="relative mt-3">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <Input
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            aria-label="Search conversations"
+          />
+        </div>
+      </div>
+
+      {/* Conversations List */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-2">
+          <div className="mb-2">
+            <h3 className="text-sm font-semibold text-muted-foreground px-2 py-1">Library</h3>
+          </div>
+          
+          <div 
+            className="space-y-1"
+            role="list"
+            aria-label="Conversation history"
+          >
+            {filteredConversations.map((conversation) => (
+              <div
+                key={conversation._id}
+                className={cn(
+                  "group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors",
+                  currentConversationId === conversation._id
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-muted/50"
+                )}
+                onClick={() => handleConversationClick(conversation._id)}
+                role="listitem"
+                aria-label={`Conversation: ${conversation.title}`}
+                aria-current={currentConversationId === conversation._id ? "page" : undefined}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    handleConversationClick(conversation._id)
+                  }
+                }}
+              >
+                <MessageSquare className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                <span className="flex-1 truncate text-sm">{conversation.title}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteConversation(conversation._id)
+                  }}
+                  aria-label={`Delete conversation: ${conversation.title}`}
+                  title="Delete conversation"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          
+          {filteredConversations.length === 0 && searchQuery && (
+            <div className="text-center py-8 text-muted-foreground" role="status" aria-live="polite">
+              <p>No conversations found matching "{searchQuery}"</p>
+            </div>
+          )}
+          
+          {filteredConversations.length === 0 && !searchQuery && (
+            <div className="text-center py-8 text-muted-foreground" role="status" aria-live="polite">
+              <p>No conversations yet</p>
+              <p className="text-xs mt-1">Start a new chat to begin</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-border">
+        <div className="space-y-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="w-full justify-start gap-2"
+            aria-label="Open settings"
+          >
             <Settings className="h-4 w-4" />
             Settings
           </Button>
-
-          {/* Theme toggle */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-start gap-2">
-                {theme === "light" ? <Sun className="h-4 w-4" /> : theme === "dark" ? <Moon className="h-4 w-4" /> : <Laptop className="h-4 w-4" />}
-                Theme
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setTheme("light")}> <Sun className="h-4 w-4 mr-2" /> Light </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("dark")}> <Moon className="h-4 w-4 mr-2" /> Dark </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTheme("system")}> <Laptop className="h-4 w-4 mr-2" /> System </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Profile dropdown with logout */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <div className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
-                  {user?.firstName?.[0] || "U"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{user?.fullName || "User"}</div>
-                  <div className="text-xs text-muted-foreground">{user?.primaryEmailAddress?.emailAddress || ""}</div>
-                </div>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push("/profile")}>Profile</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => signOut()}>Logout</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="w-full justify-start gap-2"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${mounted && theme === 'dark' ? 'light' : 'dark'} theme`}
+          >
+            {mounted && theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            Theme
+          </Button>
+        </div>
+        
+        <div className="mt-4 pt-4 border-t border-border">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.imageUrl} alt={user?.fullName || "User"} />
+              <AvatarFallback>{user?.firstName?.[0] || "U"}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{user?.fullName || "User"}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.emailAddresses?.[0]?.emailAddress || ""}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handleSignOut}
+              aria-label="Sign out"
+              title="Sign out"
+            >
+              <LogOut className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
