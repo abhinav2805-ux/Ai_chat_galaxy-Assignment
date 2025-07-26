@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Search, Library, Settings, MessageSquare, MoreHorizontal, Edit2, Trash2, Menu } from "lucide-react"
+import { Plus, Search, Library, Settings, MessageSquare, MoreHorizontal, Edit2, Trash2, Menu, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { UserButton, useUser, useClerk } from "@clerk/nextjs"
 import { useTheme } from "next-themes"
 import { Sun, Moon, Laptop } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface Conversation {
   _id: string
@@ -24,10 +25,13 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
   const [isLoading, setIsLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState("")
   const router = useRouter()
   const { user } = useUser()
   const { signOut } = useClerk()
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme()
+  const { toast } = useToast()
 
   useEffect(() => {
     setMounted(true)
@@ -86,9 +90,63 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
         if (window.location.pathname.includes(conversationId)) {
           router.push('/')
         }
+        toast({
+          title: "Conversation deleted",
+          description: "The conversation has been permanently deleted.",
+        })
       }
     } catch (error) {
       console.error("Failed to delete conversation:", error)
+      toast({
+        title: "Error",
+        description: "Failed to delete conversation. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRenameConversation = async (conversationId: string, newTitle: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle })
+      })
+      if (res.ok) {
+        // Update local state
+        setConversations(prev => prev.map(conv => 
+          conv._id === conversationId ? { ...conv, title: newTitle } : conv
+        ))
+        setEditingId(null)
+        setEditTitle("")
+        toast({
+          title: "Conversation renamed",
+          description: "The conversation title has been updated.",
+        })
+      }
+    } catch (error) {
+      console.error("Failed to rename conversation:", error)
+      toast({
+        title: "Error",
+        description: "Failed to rename conversation. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const startEditing = (conversation: Conversation) => {
+    setEditingId(conversation._id)
+    setEditTitle(conversation.title || "")
+  }
+
+  const cancelEditing = () => {
+    setEditingId(null)
+    setEditTitle("")
+  }
+
+  const saveEdit = () => {
+    if (editTitle.trim()) {
+      handleRenameConversation(editingId!, editTitle.trim())
     }
   }
 
@@ -188,6 +246,12 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
                   conversation={conversation}
                   onClick={() => handleConversationClick(conversation._id)}
                   onDelete={handleDeleteConversation}
+                  onRename={startEditing}
+                  isEditing={editingId === conversation._id}
+                  editTitle={editTitle}
+                  setEditTitle={setEditTitle}
+                  onSaveEdit={saveEdit}
+                  onCancelEdit={cancelEditing}
                 />
               ))}
             </div>
@@ -244,43 +308,80 @@ interface ConversationItemProps {
   conversation: Conversation
   onClick: () => void
   onDelete: (conversationId: string) => void
+  onRename: (conversation: Conversation) => void
+  isEditing: boolean
+  editTitle: string
+  setEditTitle: (title: string) => void
+  onSaveEdit: () => void
+  onCancelEdit: () => void
 }
 
-function ConversationItem({ conversation, onClick, onDelete }: ConversationItemProps) {
-  const [isHovered, setIsHovered] = useState(false)
+function ConversationItem({ 
+  conversation, 
+  onClick, 
+  onDelete, 
+  onRename,
+  isEditing,
+  editTitle,
+  setEditTitle,
+  onSaveEdit,
+  onCancelEdit
+}: ConversationItemProps) {
+  const isActive = typeof window !== 'undefined' && window.location.pathname.includes(conversation._id)
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50">
+        <Input
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              onSaveEdit()
+            } else if (e.key === 'Escape') {
+              onCancelEdit()
+            }
+          }}
+          className="flex-1 text-sm"
+          autoFocus
+        />
+        <Button size="icon" variant="ghost" onClick={onSaveEdit} className="h-6 w-6">
+          <Check className="h-3 w-3" />
+        </Button>
+        <Button size="icon" variant="ghost" onClick={onCancelEdit} className="h-6 w-6">
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div
       className={cn(
-        "group flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
-        isHovered && "bg-muted/50",
+        "group flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
+        isActive && "bg-muted"
       )}
       onClick={onClick}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
-      <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <div className="text-sm truncate">{conversation.title || "New conversation"}</div>
-      </div>
-
+      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+      <span className="flex-1 text-sm truncate">{conversation.title || "New Chat"}</span>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
             size="icon"
-            className={cn("h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity", isHovered && "opacity-100")}
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => e.stopPropagation()}
           >
             <MoreHorizontal className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onRename(conversation)}>
             <Edit2 className="h-4 w-4 mr-2" />
             Rename
           </DropdownMenuItem>
-          <DropdownMenuItem 
+          <DropdownMenuItem
             className="text-destructive"
             onClick={() => onDelete(conversation._id)}
           >

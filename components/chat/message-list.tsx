@@ -7,19 +7,26 @@ import { Button } from "@/components/ui/button"
 import { ArrowDown } from "lucide-react"
 
 interface Message {
-  id: string
+  _id?: string // MongoDB ObjectId
+  id?: string // Fallback for temporary IDs
   role: "user" | "assistant"
   content: string
   createdAt?: string
+  attachedFile?: {
+    name: string
+    type: string
+    size?: number
+  }
 }
 
 interface MessageListProps {
   messages: Message[]
   isLoading: boolean
   onEditMessage: (messageId: string, newContent: string) => void
+  isEditing?: boolean // Add global editing state
 }
 
-export default function MessageList({ messages, isLoading, onEditMessage }: MessageListProps) {
+export default function MessageList({ messages, isLoading, onEditMessage, isEditing }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -46,9 +53,14 @@ export default function MessageList({ messages, isLoading, onEditMessage }: Mess
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
             {messages.map((message, index) => (
-              <MessageBubble key={message.id || index} message={message} onEdit={onEditMessage} />
+              <MessageBubble 
+                key={message._id || message.id || index} 
+                message={message} 
+                onEdit={onEditMessage} 
+                isEditing={isEditing} // Pass the global editing state
+              />
             ))}
-            {isLoading && <TypingIndicator />}
+            {isLoading && <TypingIndicator message={isEditing ? "Regenerating response..." : "AI is thinking..."} />}
           </div>
         )}
         <div ref={messagesEndRef} />

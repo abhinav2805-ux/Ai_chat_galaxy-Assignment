@@ -1,14 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { cn } from "@/lib/utils"
 import { Edit2, Check, X, Copy, RotateCcw, FileText, File, Image } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { cn } from "@/lib/utils"
 
 interface Message {
-  id: string
+  _id?: string // MongoDB ObjectId
+  id?: string // Fallback for temporary IDs
   role: "user" | "assistant"
   content: string
   createdAt?: string
@@ -21,31 +23,117 @@ interface Message {
 
 interface MessageBubbleProps {
   message: Message
-  onEdit: (messageId: string, newContent: string) => void
+  onEdit?: (messageId: string, newContent: string) => void
+  isEditing?: boolean // Add editing state prop
 }
 
-export default function MessageBubble({ message, onEdit }: MessageBubbleProps) {
+const getFileIcon = (fileType: string) => {
+  if (fileType.startsWith('image/')) return <Image className="h-4 w-4" />
+  if (fileType.includes('pdf')) return <FileText className="h-4 w-4" />
+  return <File className="h-4 w-4" />
+}
+
+export default function MessageBubble({ message, onEdit, isEditing: globalEditing }: MessageBubbleProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
 
-  const handleSaveEdit = () => {
-    if (editContent.trim() !== message.content) {
-      onEdit(message.id, editContent.trim())
+  const isUser = message.role === "user"
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus()
+      textareaRef.current.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length)
+    }
+  }, [isEditing])
+
+  const handleEdit = () => {
+    // Don't allow editing temporary messages
+    if (message._id?.startsWith('temp_') || message.id?.startsWith('temp_')) {
+      toast({
+        title: "Cannot edit",
+        description: "Please wait for the message to be saved before editing.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Don't allow editing if another edit is in progress
+    if (globalEditing) {
+      toast({
+        title: "Please wait",
+        description: "Another edit is in progress. Please wait for it to complete.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsEditing(true)
+    setEditContent(message.content)
+  }
+
+  const handleSave = async () => {
+    if (editContent.trim() === message.content) {
+      setIsEditing(false)
+      return
+    }
+
+    if (!editContent.trim()) {
+      toast({
+        title: "Error",
+        description: "Message cannot be empty.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (onEdit) {
+      onEdit(message._id || message.id || "", editContent.trim())
     }
     setIsEditing(false)
   }
 
-  const handleCancelEdit = () => {
-    setEditContent(message.content)
+  const handleCancel = () => {
     setIsEditing(false)
+    setEditContent(message.content)
+  }
+
+  const handleRegenerate = async () => {
+    if (!isUser) return
+    
+    // Don't allow regenerating temporary messages
+    if (message._id?.startsWith('temp_') || message.id?.startsWith('temp_')) {
+      toast({
+        title: "Cannot regenerate",
+        description: "Please wait for the message to be saved before regenerating.",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    setIsRegenerating(true)
+    try {
+      if (onEdit) {
+        onEdit(message._id || message.id || "", message.content)
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to regenerate response. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRegenerating(false)
+    }
   }
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(message.content)
       toast({
-        title: "Copied",
+        title: "Copied!",
         description: "Message copied to clipboard.",
       })
     } catch (error) {
@@ -57,20 +145,22 @@ export default function MessageBubble({ message, onEdit }: MessageBubbleProps) {
     }
   }
 
-  const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith('image/')) return <Image className="h-4 w-4" />
-    if (fileType.includes('pdf')) return <FileText className="h-4 w-4" />
-    return <File className="h-4 w-4" />
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSave()
+    } else if (e.key === "Escape") {
+      handleCancel()
+    }
   }
-
-  const isUser = message.role === "user"
 
   return (
     <div className={cn("group flex gap-4 message-enter", isUser ? "justify-end" : "justify-start")}>
       {!isUser && (
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
-          AI
-        </div>
+        <Avatar className="h-8 w-8">
+          <AvatarImage src="/placeholder-logo.png" alt="AI" />
+          <AvatarFallback>AI</AvatarFallback>
+        </Avatar>
       )}
 
       <div className={cn("max-w-[70%] space-y-2", isUser && "order-first")}>
@@ -99,52 +189,88 @@ export default function MessageBubble({ message, onEdit }: MessageBubbleProps) {
           {isEditing ? (
             <div className="space-y-2">
               <Textarea
+                ref={textareaRef}
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                className="min-h-[60px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0"
-                autoFocus
+                onKeyDown={handleKeyDown}
+                className="min-h-[100px] resize-none border-0 bg-transparent p-0 focus-visible:ring-0"
+                placeholder="Edit your message..."
               />
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSaveEdit}>
-                  <Check className="h-3 w-3" />
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={handleSave} className="h-8">
+                  <Check className="h-3 w-3 mr-1" />
+                  Save
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleCancelEdit}>
-                  <X className="h-3 w-3" />
+                <Button size="sm" variant="ghost" onClick={handleCancel} className="h-8">
+                  <X className="h-3 w-3 mr-1" />
+                  Cancel
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="whitespace-pre-wrap break-words">{message.content}</div>
+            <div className="whitespace-pre-wrap">{message.content}</div>
           )}
         </div>
 
         {/* Action buttons */}
-        <div
-          className={cn(
-            "flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
-            isUser ? "justify-end" : "justify-start",
-          )}
-        >
-          <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 px-2 text-xs">
-            <Copy className="h-3 w-3" />
-          </Button>
-          {isUser && (
-            <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-6 px-2 text-xs">
-              <Edit2 className="h-3 w-3" />
+        {!isEditing && (
+          <div className={cn(
+            "flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
+            isUser ? "justify-end" : "justify-start"
+          )}>
+            {isUser && (
+              <>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  onClick={handleEdit}
+                  disabled={message._id?.startsWith('temp_') || message.id?.startsWith('temp_') || globalEditing}
+                  title={
+                    message._id?.startsWith('temp_') || message.id?.startsWith('temp_') 
+                      ? "Wait for message to save" 
+                      : globalEditing 
+                        ? "Another edit in progress" 
+                        : "Edit message"
+                  }
+                >
+                  <Edit2 className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6"
+                  onClick={handleRegenerate}
+                  disabled={isRegenerating || message._id?.startsWith('temp_') || message.id?.startsWith('temp_') || globalEditing}
+                  title={
+                    message._id?.startsWith('temp_') || message.id?.startsWith('temp_') 
+                      ? "Wait for message to save" 
+                      : globalEditing 
+                        ? "Another edit in progress" 
+                        : "Regenerate response"
+                  }
+                >
+                  <RotateCcw className={cn("h-3 w-3", isRegenerating && "animate-spin")} />
+                </Button>
+              </>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={handleCopy}
+            >
+              <Copy className="h-3 w-3" />
             </Button>
-          )}
-          {!isUser && (
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-              <RotateCcw className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {isUser && (
-        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
-          U
-        </div>
+        <Avatar className="h-8 w-8">
+          <AvatarImage src="/placeholder-user.jpg" alt="User" />
+          <AvatarFallback>U</AvatarFallback>
+        </Avatar>
       )}
     </div>
   )
