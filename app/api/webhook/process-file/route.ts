@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import connectToDB from "@/lib/db"
 import FileUpload from "@/lib/models/fileUpload.model"
-import pdf from "pdf-parse"
 
 export async function POST(req: Request) {
   try {
@@ -22,24 +21,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "File not found" }, { status: 404 })
     }
 
-    // Update status to processing
-    fileDoc.processingStatus = 'processing'
-    await fileDoc.save()
-
-    console.log(`Processing file: ${fileDoc.fileUrl}`)
-    const response = await fetch(fileDoc.fileUrl)
-    const fileBuffer = await response.arrayBuffer()
-
-    const data = await pdf(Buffer.from(fileBuffer))
-    const extractedText = data.text
-
-    console.log(`Extracted ${extractedText.length} characters.`)
-
-    fileDoc.extractedText = extractedText
+    // Update status to completed since PDF is sent directly to LLM
     fileDoc.processingStatus = 'completed'
     await fileDoc.save()
 
-    return NextResponse.json({ success: true, message: "File processed." })
+    console.log(`File ${fileId} marked as completed - PDF sent directly to LLM`)
+
+    return NextResponse.json({ success: true, message: "File processing completed." })
   } catch (error) {
     console.error("[WEBHOOK_PROCESS_FILE]", error)
     
