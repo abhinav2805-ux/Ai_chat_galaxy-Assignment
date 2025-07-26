@@ -60,6 +60,7 @@ export default function ChatInput({
     const formData = new FormData()
     formData.append("prompt", input)
     if (file) formData.append("file", file)
+    if (conversationId) formData.append("conversationId", conversationId)
     handleSubmit(e, formData)
     setFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ''

@@ -19,7 +19,7 @@ const UserSchema = new Schema<IUser>(
     email: {
       type: String,
       required: true,
-      unique: true,
+      // Removed unique constraint to prevent duplicate key errors
     },
     name: {
       type: String,

@@ -5,7 +5,7 @@ import User from "@/lib/models/user.model"
 import Conversation from "@/lib/models/conversation.model"
 import Message from "@/lib/models/message.model"
 
-export async function GET(
+export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
@@ -31,12 +31,15 @@ export async function GET(
       return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
     }
 
-    const messages = await Message.find({ conversationId: conversation._id })
-      .sort({ createdAt: "asc" })
+    // Delete all messages in the conversation
+    await Message.deleteMany({ conversationId: conversation._id })
+    
+    // Delete the conversation
+    await Conversation.findByIdAndDelete(conversation._id)
 
-    return NextResponse.json(messages)
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[CHAT_CONVERSATION_GET]", error)
+    console.error("[CONVERSATION_DELETE]", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
-}
+} 

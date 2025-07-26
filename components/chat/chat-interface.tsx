@@ -15,7 +15,7 @@ interface ChatInterfaceProps {
 export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [uploadedTexts, setUploadedTexts] = useState<string[]>([])
+  const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(conversationId)
   const { toast } = useToast()
   const router = useRouter()
 
@@ -29,7 +29,7 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
   } = useChat({
     api: "/api/chat",
     body: {
-      conversationId,
+      conversationId: currentConversationId,
     },
     onError: (error) => {
       toast({
@@ -39,23 +39,38 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
       })
     },
     onFinish: (msg) => {
-      if (msg && msg.conversationId && msg.conversationId !== conversationId) {
-        router.push(`/chat/${msg.conversationId}`)
+      // Handle conversation creation and navigation
+      const responseHeaders = msg.headers as any;
+      const newConversationId = responseHeaders?.get?.('X-Conversation-Id') || 
+                               responseHeaders?.['x-conversation-id'];
+      
+      if (newConversationId && newConversationId !== currentConversationId) {
+        setCurrentConversationId(newConversationId);
+        router.push(`/chat/${newConversationId}`);
       }
     },
   })
 
   useEffect(() => {
-    if (conversationId) {
+    setCurrentConversationId(conversationId);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (currentConversationId) {
       loadConversation()
-      loadUploadedTexts()
+    } else {
+      // Clear messages for new chat
+      setMessages([])
+      setStreamMessages([])
     }
-  }, [conversationId])
+  }, [currentConversationId])
 
   const loadConversation = async () => {
+    if (!currentConversationId) return;
+    
     try {
       setIsLoading(true)
-      const res = await fetch(`/api/chat/${conversationId}`)
+      const res = await fetch(`/api/chat/${currentConversationId}`)
       if (res.ok) {
         const data = await res.json()
         setMessages(data)
@@ -70,17 +85,6 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // Debug: Load extractedText from uploaded files
-  const loadUploadedTexts = async () => {
-    try {
-      const res = await fetch(`/api/uploaded-files?conversationId=${conversationId}`)
-      if (res.ok) {
-        const data = await res.json()
-        setUploadedTexts(data.map((f: any) => f.extractedText).filter(Boolean))
-      }
-    } catch {}
   }
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
@@ -102,16 +106,6 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
     }
   }
 
-  const handleFirstMessage = async (message: string) => {
-    if (conversationId && message) {
-      await fetch(`/api/conversations`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: conversationId, title: message.slice(0, 40) })
-      })
-    }
-  }
-
   // Custom submit handler for file uploads
   const customHandleSubmit = async (e: React.FormEvent<HTMLFormElement>, formData?: FormData) => {
     e.preventDefault()
@@ -122,6 +116,11 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
         const file = formData.get('file') as File | null
         const prompt = formData.get('prompt') as string
         
+        // Add conversationId to formData if available
+        if (currentConversationId) {
+          formData.append('conversationId', currentConversationId)
+        }
+        
         const response = await fetch('/api/chat', {
           method: 'POST',
           body: formData,
@@ -129,6 +128,13 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
         
         if (!response.ok) {
           throw new Error('Failed to send message')
+        }
+        
+        // Check for new conversation ID in headers
+        const newConversationId = response.headers.get('X-Conversation-Id')
+        if (newConversationId && newConversationId !== currentConversationId) {
+          setCurrentConversationId(newConversationId)
+          router.push(`/chat/${newConversationId}`)
         }
         
         const reader = response.body?.getReader()
@@ -193,22 +199,18 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar />
+      <Sidebar onNewChat={(conversationId) => {
+        setCurrentConversationId(conversationId)
+        router.push(`/chat/${conversationId}`)
+      }} />
       <div className="flex-1 flex flex-col overflow-y-auto">
-        {/* Debug: Show extractedText from uploaded files */}
-        {uploadedTexts.length > 0 && (
-          <div className="bg-yellow-100 text-black p-2 m-2 rounded text-xs max-h-40 overflow-auto">
-            <b>Extracted PDF Text (debug):</b>
-            <pre>{uploadedTexts.join("\n---\n").slice(0, 2000)}</pre>
-          </div>
-        )}
         <MessageList messages={streamMessages} isLoading={isLoading || isStreaming} onEditMessage={handleEditMessage} />
         <ChatInput
           input={input}
           handleInputChange={handleInputChange}
           handleSubmit={customHandleSubmit}
           isLoading={isStreaming}
-          conversationId={conversationId}
+          conversationId={currentConversationId}
         />
       </div>
     </div>

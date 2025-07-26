@@ -23,12 +23,14 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const { user } = useUser()
   const { signOut } = useClerk()
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
+    setMounted(true)
     fetchConversations()
   }, [])
 
@@ -51,7 +53,7 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
       const res = await fetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({})
+        body: JSON.stringify({ title: "New Chat" })
       })
       if (res.ok) {
         const data = await res.json()
@@ -60,6 +62,8 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
           else router.push(`/chat/${data.id}`)
         }
       }
+    } catch (error) {
+      console.error("Failed to create new chat:", error)
     } finally {
       setIsLoading(false)
     }
@@ -68,6 +72,24 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
   const handleConversationClick = (conversationId: string) => {
     router.push(`/chat/${conversationId}`)
     setSidebarOpen(false)
+  }
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}`, {
+        method: "DELETE",
+      })
+      if (res.ok) {
+        // Remove from local state
+        setConversations(prev => prev.filter(conv => conv._id !== conversationId))
+        // If this was the current conversation, redirect to home
+        if (window.location.pathname.includes(conversationId)) {
+          router.push('/')
+        }
+      }
+    } catch (error) {
+      console.error("Failed to delete conversation:", error)
+    }
   }
 
   const filteredConversations = conversations.filter((conv) =>
@@ -79,6 +101,29 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
     "fixed z-40 top-0 left-0 w-64 bg-muted/30 border-r border-border flex flex-col h-full transition-transform duration-300 lg:static lg:translate-x-0 lg:h-screen",
     sidebarOpen ? "translate-x-0" : "-translate-x-full",
   )
+
+  // Prevent hydration mismatch by not rendering theme-dependent content until mounted
+  if (!mounted) {
+    return (
+      <div className={sidebarClass}>
+        <div className="p-4 border-b border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-lg font-semibold">ChatGPT</h1>
+            <Button variant="outline" size="sm">
+              Get Plus
+            </Button>
+          </div>
+          <Button className="w-full justify-start gap-2 bg-transparent" variant="outline" disabled>
+            <Plus className="h-4 w-4" />
+            New chat
+          </Button>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -142,6 +187,7 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
                   key={conversation._id}
                   conversation={conversation}
                   onClick={() => handleConversationClick(conversation._id)}
+                  onDelete={handleDeleteConversation}
                 />
               ))}
             </div>
@@ -197,9 +243,10 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
 interface ConversationItemProps {
   conversation: Conversation
   onClick: () => void
+  onDelete: (conversationId: string) => void
 }
 
-function ConversationItem({ conversation, onClick }: ConversationItemProps) {
+function ConversationItem({ conversation, onClick, onDelete }: ConversationItemProps) {
   const [isHovered, setIsHovered] = useState(false)
 
   return (
@@ -233,7 +280,10 @@ function ConversationItem({ conversation, onClick }: ConversationItemProps) {
             <Edit2 className="h-4 w-4 mr-2" />
             Rename
           </DropdownMenuItem>
-          <DropdownMenuItem className="text-destructive">
+          <DropdownMenuItem 
+            className="text-destructive"
+            onClick={() => onDelete(conversation._id)}
+          >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
           </DropdownMenuItem>
