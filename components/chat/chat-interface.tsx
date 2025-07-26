@@ -7,6 +7,10 @@ import ChatInput from "@/components/chat/chat-input"
 import { useChat } from "ai/react"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Menu, X } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { MessageSquare } from "lucide-react"
 
 interface ChatInterfaceProps {
   conversationId?: string
@@ -17,6 +21,7 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isEditing, setIsEditing] = useState(false) // Add editing state
   const [currentConversationId, setCurrentConversationId] = useState<string | undefined>(conversationId)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false) // Mobile sidebar state
   const { toast } = useToast()
   const router = useRouter()
 
@@ -56,6 +61,11 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
       setMessages([]) // Clear messages for new chat
       setStreamMessages([])
     }
+  }, [currentConversationId])
+
+  // Close sidebar on mobile when conversation changes
+  useEffect(() => {
+    setIsSidebarOpen(false)
   }, [currentConversationId])
 
   const loadConversation = async () => {
@@ -99,71 +109,33 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
     }
 
     setIsEditing(true)
-
     try {
-      const response = await fetch(`/api/messages/${messageId}`, {
+      const res = await fetch(`/api/messages/${messageId}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: newContent }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
       })
 
-      if (!response.ok) {
-        throw new Error('Failed to edit message')
-      }
-
-      // Update the edited message in the UI immediately
-      setStreamMessages(prev => prev.map(msg => 
-        msg._id === messageId ? { ...msg, content: newContent } : msg
-      ))
-
-      // Create a temporary assistant message for streaming
-      const tempAssistantMessage = {
-        _id: `temp_assistant_${Date.now()}`,
-        role: 'assistant' as const,
-        content: '',
-        createdAt: new Date(),
-      }
-
-      // Add the temporary assistant message to the UI
-      setStreamMessages(prev => [...prev, tempAssistantMessage])
-
-      // Stream the AI response
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('No response body')
-      }
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const text = new TextDecoder().decode(value)
-        tempAssistantMessage.content += text
-
-        // Update the streaming message in the UI
+      if (res.ok) {
+        // Update the message in the local state
         setStreamMessages(prev =>
           prev.map(msg =>
-            msg._id === tempAssistantMessage._id
-              ? { ...msg, content: tempAssistantMessage.content }
+            msg._id === messageId
+              ? { ...msg, content: newContent }
               : msg
           )
         )
+        toast({
+          title: "Success",
+          description: "Message updated successfully.",
+        })
+      } else {
+        throw new Error('Failed to update message')
       }
-
-      // Reload the conversation to get the proper MongoDB ObjectIds
-      await loadConversation()
-
-      toast({
-        title: "Message updated",
-        description: "The message has been updated and the conversation regenerated.",
-      })
     } catch (error) {
-      console.error("Error editing message:", error)
       toast({
         title: "Error",
-        description: "Failed to edit message. Please try again.",
+        description: "Failed to update message. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -171,22 +143,26 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
     }
   }
 
-  // Custom submit handler for file uploads and streaming
   const customHandleSubmit = async (e: React.FormEvent<HTMLFormElement>, formData?: FormData) => {
     e.preventDefault()
+    
+    const prompt = input.trim()
+    if (!prompt) return
 
-    if (formData) {
+    // Check if there's a file in the form data
+    const file = formData?.get('file') as File
+    
+    if (file && file.size > 0) {
+      // Handle file upload with message
       try {
-        const file = formData.get('file') as File | null
-        const prompt = formData.get('prompt') as string
+        const uploadFormData = new FormData()
+        uploadFormData.append('file', file)
+        uploadFormData.append('conversationId', currentConversationId || '')
+        uploadFormData.append('message', prompt)
 
-        if (currentConversationId) {
-          formData.append('conversationId', currentConversationId) // Add conversationId to FormData
-        }
-
-        const response = await fetch('/api/chat', {
+        const response = await fetch('/api/upload', {
           method: 'POST',
-          body: formData,
+          body: uploadFormData,
         })
 
         if (!response.ok) {
@@ -262,11 +238,49 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar onNewChat={(conversationId) => { // Pass onNewChat callback
-        setCurrentConversationId(conversationId)
-        router.push(`/chat/${conversationId}`)
-      }} />
-      <div className="flex-1 flex flex-col min-h-0">
+      {/* Mobile Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 w-80 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <Sidebar 
+          onNewChat={(conversationId) => { // Pass onNewChat callback
+            setCurrentConversationId(conversationId)
+            router.push(`/chat/${conversationId}`)
+          }}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-h-0 w-full lg:w-auto">
+        {/* Mobile Header */}
+        <div className="lg:hidden flex items-center justify-between p-4 border-b border-border">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsSidebarOpen(true)}
+            className="lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-primary flex items-center justify-center">
+              <MessageSquare className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <span className="text-lg font-bold">Mentora</span>
+          </div>
+          <div className="w-10" /> {/* Spacer for centering */}
+        </div>
+
         <div className="flex-1 overflow-hidden">
           <MessageList 
             messages={streamMessages} 

@@ -30,38 +30,38 @@ export default async function LandingPage() {
             </div>
             <span className="text-xl font-bold">Mentora </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link href="/sign-in">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" size="sm" className="hidden sm:inline-flex">Sign In</Button>
             </Link>
             <Link href="/sign-up">
-              <Button>Get Started</Button>
+              <Button size="sm" className="text-sm px-3 sm:px-4">Get Started</Button>
             </Link>
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
+      <section className="container mx-auto px-4 py-12 sm:py-20 text-center">
         <Badge variant="secondary" className="mb-4">
           <Zap className="w-3 h-3 mr-1" />
           Powered by Gemini AI
         </Badge>
-        <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
           Chat with Your Documents
         </h1>
-        <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+        <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto px-4">
           Upload PDFs, documents, and files. Ask questions and get instant answers powered by advanced AI. 
           Your personal research assistant that understands your content.
         </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
           <Link href="/sign-up">
-            <Button size="lg" className="text-lg px-8 py-6">
+            <Button size="lg" className="text-lg px-8 py-6 w-full sm:w-auto">
               Start Chatting Now
             </Button>
           </Link>
           <Link href="#features">
-            <Button variant="outline" size="lg" className="text-lg px-8 py-6">
+            <Button variant="outline" size="lg" className="text-lg px-8 py-6 w-full sm:w-auto">
               Learn More
             </Button>
           </Link>
@@ -69,15 +69,15 @@ export default async function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose Our AI Chat?</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+      <section id="features" className="container mx-auto px-4 py-12 sm:py-20">
+        <div className="text-center mb-12 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Why Choose Our AI Chat?</h2>
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
             Experience the future of document interaction with our advanced AI-powered chat platform.
           </p>
         </div>
         
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           <Card className="border-border/50 hover:border-border transition-colors">
             <CardHeader>
               <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mb-4">
@@ -153,15 +153,15 @@ export default async function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Simple, Transparent Pricing</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+      <section className="container mx-auto px-4 py-12 sm:py-20">
+        <div className="text-center mb-12 sm:mb-16">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Simple, Transparent Pricing</h2>
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
             Choose the plan that fits your needs. Start free and upgrade when you need more.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
           {/* Free Plan */}
           <Card className="border-border/50 relative">
             <CardHeader className="text-center">
@@ -272,20 +272,20 @@ export default async function LandingPage() {
       </section>
 
       {/* CTA Section */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-3xl p-12 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Get Started?</h2>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+      <section className="container mx-auto px-4 py-12 sm:py-20">
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-3xl p-8 sm:p-12 text-center">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Ready to Get Started?</h2>
+          <p className="text-base sm:text-lg text-muted-foreground mb-8 max-w-2xl mx-auto px-4">
             Join thousands of users who are already using our AI chat platform to interact with their documents.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/sign-up">
-              <Button size="lg" className="text-lg px-8 py-6">
+              <Button size="lg" className="text-lg px-8 py-6 w-full sm:w-auto">
                 Start Your Free Trial
               </Button>
             </Link>
             <Link href="/sign-in">
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6">
+              <Button variant="outline" size="lg" className="text-lg px-8 py-6 w-full sm:w-auto">
                 Sign In
               </Button>
             </Link>
@@ -295,8 +295,8 @@ export default async function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border/40 bg-background/80 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-12">
-          <div className="grid md:grid-cols-4 gap-8">
+        <div className="container mx-auto px-4 py-8 sm:py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">

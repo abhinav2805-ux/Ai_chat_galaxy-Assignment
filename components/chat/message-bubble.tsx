@@ -209,7 +209,7 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
         </Avatar>
       )}
 
-      <div className={cn("max-w-[70%] space-y-2", isUser && "order-first")}>
+      <div className={cn("max-w-[85%] sm:max-w-[70%] space-y-2", isUser && "order-first")}>
         {/* Attached file preview */}
         {message.attachedFile && (
           <div 
@@ -249,7 +249,7 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"

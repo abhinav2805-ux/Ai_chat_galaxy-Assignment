@@ -18,7 +18,12 @@ interface Conversation {
   updatedAt: string
 }
 
-export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => void }) {
+interface SidebarProps {
+  onNewChat?: (id: string) => void
+  onClose?: () => void
+}
+
+export default function Sidebar({ onNewChat, onClose }: SidebarProps) {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -98,14 +103,23 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
         body: JSON.stringify({ title: "New Chat" })
       })
       if (res.ok) {
-        const data = await res.json()
-        if (data.id) {
-          if (onNewChat) onNewChat(data.id)
-          else router.push(`/chat/${data.id}`)
+        const newConversation = await res.json()
+        setConversations(prev => [newConversation, ...prev])
+        
+        // Call the callback if provided
+        if (onNewChat) {
+          onNewChat(newConversation._id)
+        } else {
+          // Default behavior
+          router.push(`/chat/${newConversation._id}`)
         }
       }
     } catch (error) {
-      console.error("Failed to create new chat:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create new chat. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -114,28 +128,30 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
   const handleConversationClick = (conversationId: string) => {
     setCurrentConversationId(conversationId)
     router.push(`/chat/${conversationId}`)
-    // setSidebarOpen(false) // Removed as per edit hint
   }
 
   const handleDeleteConversation = async (conversationId: string) => {
     try {
       const res = await fetch(`/api/conversations/${conversationId}`, {
-        method: "DELETE",
+        method: "DELETE"
       })
+      
       if (res.ok) {
-        // Remove from local state
         setConversations(prev => prev.filter(conv => conv._id !== conversationId))
-        // If this was the current conversation, redirect to home
-        if (window.location.pathname.includes(conversationId)) {
-          router.push('/')
+        
+        // If the deleted conversation was the current one, redirect to chat home
+        if (currentConversationId === conversationId) {
+          router.push('/chat')
         }
+        
         toast({
-          title: "Conversation deleted",
-          description: "The conversation has been permanently deleted.",
+          title: "Success",
+          description: "Conversation deleted successfully.",
         })
+      } else {
+        throw new Error('Failed to delete conversation')
       }
     } catch (error) {
-      console.error("Failed to delete conversation:", error)
       toast({
         title: "Error",
         description: "Failed to delete conversation. Please try again.",
@@ -151,20 +167,26 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle })
       })
+      
       if (res.ok) {
-        // Update local state
-        setConversations(prev => prev.map(conv => 
-          conv._id === conversationId ? { ...conv, title: newTitle } : conv
-        ))
+        setConversations(prev => 
+          prev.map(conv => 
+            conv._id === conversationId 
+              ? { ...conv, title: newTitle }
+              : conv
+          )
+        )
         setEditingId(null)
         setEditTitle("")
+        
         toast({
-          title: "Conversation renamed",
-          description: "The conversation title has been updated.",
+          title: "Success",
+          description: "Conversation renamed successfully.",
         })
+      } else {
+        throw new Error('Failed to rename conversation')
       }
     } catch (error) {
-      console.error("Failed to rename conversation:", error)
       toast({
         title: "Error",
         description: "Failed to rename conversation. Please try again.",
@@ -184,17 +206,17 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
   }
 
   const saveEdit = () => {
-    if (editTitle.trim()) {
-      handleRenameConversation(editingId!, editTitle.trim())
+    if (editingId && editTitle.trim()) {
+      handleRenameConversation(editingId, editTitle.trim())
     }
   }
 
-  const filteredConversations = conversations.filter((conv) =>
-    conv.title?.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredConversations = conversations.filter(conversation =>
+    conversation.title?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Prevent hydration mismatch by not rendering theme-dependent content until mounted
-  if (!mounted) {
+  // Loading state
+  if (isLoading && conversations.length === 0) {
     return (
       <div className="flex flex-col h-full bg-muted/30 border-r border-border">
         <div className="p-4 border-b border-border">
@@ -250,6 +272,17 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
           <Button variant="ghost" size="sm" className="ml-auto h-6 px-2 text-xs">
             Get Plus
           </Button>
+          {/* Mobile close button */}
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden h-6 w-6"
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         
         <Button 
