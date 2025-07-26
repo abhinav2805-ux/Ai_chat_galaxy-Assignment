@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Send, Mic, Paperclip, X, MicOff, Volume2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
-import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
+
 
 interface ChatInputProps {
   input: string
@@ -29,16 +29,91 @@ export default function ChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
   
-  // Voice recording hook
-  const {
-    isRecording,
-    isSupported,
-    transcript,
-    startRecording,
-    stopRecording,
-    resetTranscript,
-    error
-  } = useVoiceRecorder()
+  // Voice recording hook - simplified to avoid hydration issues
+  const [isRecording, setIsRecording] = useState(false)
+  const [isSupported, setIsSupported] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+  // Check browser support after mount
+  useEffect(() => {
+    const supported = typeof window !== 'undefined' && 
+      ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+    setIsSupported(supported)
+  }, [])
+
+  const startRecording = async () => {
+    if (!isSupported) {
+      setError('Voice recording not supported in this browser')
+      return
+    }
+
+    try {
+      setError(null)
+      setIsRecording(true)
+      setTranscript('')
+
+      // Create speech recognition instance
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      const recognition = new SpeechRecognition()
+      
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'en-US'
+
+      recognition.onstart = () => {
+        console.log('Voice recording started')
+      }
+
+      recognition.onresult = (event) => {
+        let finalTranscript = ''
+        let interimTranscript = ''
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript
+          } else {
+            interimTranscript += transcript
+          }
+        }
+
+        setTranscript(finalTranscript + interimTranscript)
+      }
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error)
+        setError(`Speech recognition error: ${event.error}`)
+        setIsRecording(false)
+      }
+
+      recognition.onend = () => {
+        console.log('Voice recording ended')
+        setIsRecording(false)
+      }
+
+      recognitionRef.current = recognition
+      recognition.start()
+
+    } catch (err) {
+      console.error('Failed to start voice recording:', err)
+      setError('Failed to start voice recording')
+      setIsRecording(false)
+    }
+  }
+
+  const stopRecording = () => {
+    if (recognitionRef.current && isRecording) {
+      recognitionRef.current.stop()
+      setIsRecording(false)
+    }
+  }
+
+  const resetTranscript = () => {
+    setTranscript('')
+    setError(null)
+  }
 
   // Update input when transcript changes
   useEffect(() => {

@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Edit2, Check, X, Copy, RotateCcw, FileText, File, Image, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import PDFViewer from "@/components/pdf-viewer"
 
 interface Message {
   _id?: string // MongoDB ObjectId
@@ -15,6 +14,7 @@ interface Message {
   role: "user" | "assistant"
   content: string
   createdAt?: string
+  isProcessing?: boolean // Add processing state
   attachedFile?: {
     name: string
     type: string
@@ -45,7 +45,6 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [isRegenerating, setIsRegenerating] = useState(false)
-  const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
 
@@ -166,17 +165,17 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
   }
 
   const handleViewFile = () => {
-    if (!message.attachedFile) return
-
-    if (message.attachedFile.type.includes('pdf')) {
-      setIsPDFViewerOpen(true)
-    } else {
-      // For non-PDF files, show a toast for now
+    if (!message.attachedFile?.url) {
       toast({
         title: "File Preview",
-        description: `Opening ${message.attachedFile.name}`,
+        description: "File URL not available",
+        variant: "destructive",
       })
+      return
     }
+
+    // Open file in new tab
+    window.open(message.attachedFile.url, '_blank')
   }
 
   const handleDownloadFile = () => {
@@ -316,7 +315,15 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
               </div>
             </div>
           ) : (
-            <div className="whitespace-pre-wrap" aria-live="polite">{message.content}</div>
+            <div className="whitespace-pre-wrap" aria-live="polite">
+              {message.content}
+              {message.isProcessing && (
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm">Processing...</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -401,15 +408,7 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
         </Avatar>
       )}
 
-      {/* PDF Viewer */}
-      {message.attachedFile?.type.includes('pdf') && message.attachedFile.url && (
-        <PDFViewer
-          file={message.attachedFile.url}
-          fileName={message.attachedFile.name}
-          isOpen={isPDFViewerOpen}
-          onClose={() => setIsPDFViewerOpen(false)}
-        />
-      )}
+
     </div>
   )
 }

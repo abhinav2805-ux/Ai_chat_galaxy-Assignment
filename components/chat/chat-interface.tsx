@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Sidebar from "@/components/sidebar/sidebar"
 import MessageList from "@/components/chat/message-list"
 import ChatInput from "@/components/chat/chat-input"
-import { useChat } from "ai/react"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -25,30 +24,106 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
   const { toast } = useToast()
   const router = useRouter()
 
-  const {
-    messages: streamMessages,
-    input,
-    handleInputChange,
-    handleSubmit, // useChat's default handleSubmit
-    isLoading: isStreaming,
-    setMessages: setStreamMessages,
-  } = useChat({
-    api: "/api/chat",
-    body: {
-      conversationId: currentConversationId, // Use currentConversationId
-    },
-    onError: (error) => {
+  const [streamMessages, setStreamMessages] = useState<any[]>([])
+  const [input, setInput] = useState("")
+  const [isStreaming, setIsStreaming] = useState(false)
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+  }
+
+  // Custom handleSubmit that includes conversationId
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>, formData?: FormData) => {
+    e.preventDefault()
+    if (!input.trim()) return
+
+    if (formData) {
+      // If formData is provided (file upload), use the custom submit handler
+      customHandleSubmit(e, formData)
+    } else {
+      // For text-only messages, manually send the request with conversationId
+      handleTextMessage(input)
+    }
+  }
+
+  // Handle text-only messages
+  const handleTextMessage = async (prompt: string) => {
+    try {
+      setIsStreaming(true)
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          conversationId: currentConversationId || undefined,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to send message')
+      }
+
+      const newConversationId = response.headers.get('X-Conversation-Id')
+      if (newConversationId && newConversationId !== currentConversationId) {
+        setCurrentConversationId(newConversationId)
+        router.push(`/chat/${newConversationId}`)
+      }
+
+      const reader = response.body?.getReader()
+      if (!reader) return
+
+      const userMessage = {
+        _id: `temp_${Date.now()}`,
+        role: 'user',
+        content: prompt,
+        createdAt: new Date(),
+      }
+      setStreamMessages(prev => [...prev, userMessage])
+
+      let assistantMessage = {
+        _id: `temp_${Date.now() + 1}`,
+        role: 'assistant',
+        content: '',
+        createdAt: new Date(),
+      }
+      setStreamMessages(prev => [...prev, assistantMessage])
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const text = new TextDecoder().decode(value)
+        assistantMessage.content += text
+
+        setStreamMessages(prev =>
+          prev.map(msg =>
+            msg._id === assistantMessage._id
+              ? { ...msg, content: assistantMessage.content }
+              : msg
+          )
+        )
+      }
+
+      // Clear input
+      handleInputChange({ target: { value: '' } } as any)
+
+      // Reload messages to get proper MongoDB ObjectIds
+      if (currentConversationId) {
+        await loadConversation()
+      }
+
+    } catch (error) {
       toast({
         title: "Error",
         description: "Failed to send message. Please try again.",
         variant: "destructive",
       })
-    },
-    onFinish: (msg) => {
-      // This onFinish is for useChat's internal handling, custom streaming is below
-      // The X-Conversation-Id header is handled in customHandleSubmit
-    },
-  })
+    } finally {
+      setIsStreaming(false)
+    }
+  }
 
   useEffect(() => {
     setCurrentConversationId(conversationId); // Update current ID from prop
@@ -153,33 +228,37 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
     const file = formData?.get('file') as File
     
     if (file && file.size > 0) {
-      // Handle file upload with message
+      // Handle file upload with message - send directly to chat API
       try {
-        const uploadFormData = new FormData()
-        uploadFormData.append('file', file)
-        uploadFormData.append('conversationId', currentConversationId || '')
-        uploadFormData.append('message', prompt)
+        setIsStreaming(true)
+        
+        // Create form data for chat API
+        const chatFormData = new FormData()
+        chatFormData.append('prompt', prompt)
+        chatFormData.append('conversationId', currentConversationId || '')
+        chatFormData.append('file', file)
 
-        const response = await fetch('/api/upload', {
+        console.log("[CHAT_INTERFACE] Sending file with chat message:", file.name)
+        const chatResponse = await fetch('/api/chat', {
           method: 'POST',
-          body: uploadFormData,
+          body: chatFormData,
         })
 
-        if (!response.ok) {
+        if (!chatResponse.ok) {
           throw new Error('Failed to send message')
         }
 
-        const newConversationId = response.headers.get('X-Conversation-Id') // Get new ID from header
+        const newConversationId = chatResponse.headers.get('X-Conversation-Id')
         if (newConversationId && newConversationId !== currentConversationId) {
           setCurrentConversationId(newConversationId)
           router.push(`/chat/${newConversationId}`)
         }
 
-        const reader = response.body?.getReader()
+        const reader = chatResponse.body?.getReader()
         if (!reader) return
 
         const userMessage = {
-          _id: `temp_${Date.now()}`, // Temporary ID for frontend
+          _id: `temp_${Date.now()}`,
           role: 'user',
           content: prompt,
           createdAt: new Date(),
@@ -191,25 +270,31 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
         }
         setStreamMessages(prev => [...prev, userMessage])
 
-        let assistantMessage = {
-          _id: `temp_${Date.now() + 1}`, // Temporary ID for frontend
+        // Add a processing message
+        const processingMessage = {
+          _id: `temp_${Date.now() + 1}`,
           role: 'assistant',
-          content: '',
+          content: `Processing your document "${file.name}"... This may take a few moments.`,
           createdAt: new Date(),
+          isProcessing: true,
         }
-        setStreamMessages(prev => [...prev, assistantMessage])
+        setStreamMessages(prev => [...prev, processingMessage])
 
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
           const text = new TextDecoder().decode(value)
-          assistantMessage.content += text
-
+          
+          // Replace the processing message with the actual response
           setStreamMessages(prev =>
             prev.map(msg =>
-              msg._id === assistantMessage._id
-                ? { ...msg, content: assistantMessage.content }
+              msg._id === processingMessage._id
+                ? { 
+                    ...msg, 
+                    content: text,
+                    isProcessing: false 
+                  }
                 : msg
             )
           )
@@ -224,15 +309,18 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
         }
 
       } catch (error) {
+        console.error("[CHAT_INTERFACE] Error:", error)
         toast({
           title: "Error",
           description: "Failed to send message. Please try again.",
           variant: "destructive",
         })
+      } finally {
+        setIsStreaming(false)
       }
     } else {
       // Handle regular text-only messages
-      handleSubmit(e)
+      handleTextMessage(prompt)
     }
   }
 

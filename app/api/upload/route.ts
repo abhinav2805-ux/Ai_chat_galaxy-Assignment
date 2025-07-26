@@ -82,19 +82,35 @@ export async function POST(req: Request) {
     await newFileUpload.save();
     console.log("[UPLOAD] FileUpload metadata saved:", newFileUpload);
 
-    // Trigger the background processing webhook (without await for immediate response)
+    // Trigger the background processing webhook
     const baseUrl = req.headers.get('origin') || `http://${req.headers.get('host')}`
     const webhookSecret = process.env.WEBHOOK_SECRET || "dev-secret"
-    fetch(`${baseUrl}/api/webhook/process-file`, {
+    const webhookUrl = `${baseUrl}/api/webhook/process-file`
+    console.log("[UPLOAD] Calling webhook URL:", webhookUrl)
+    console.log("[UPLOAD] File ID:", newFileUpload._id)
+    
+    try {
+      const webhookResponse = await fetch(webhookUrl, {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${webhookSecret}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${webhookSecret}`,
         },
         body: JSON.stringify({ fileId: newFileUpload._id }),
-    }).catch(error => {
-        console.error("[UPLOAD] Failed to trigger webhook:", error);
-    });
+      })
+      
+      console.log("[UPLOAD] Webhook response status:", webhookResponse.status)
+      if (!webhookResponse.ok) {
+        console.error("[UPLOAD] Webhook failed:", webhookResponse.status, webhookResponse.statusText)
+        // Don't fail the upload if webhook fails, just log the error
+      } else {
+        const webhookResult = await webhookResponse.json()
+        console.log("[UPLOAD] Webhook success:", webhookResult)
+      }
+    } catch (error) {
+      console.error("[UPLOAD] Failed to trigger webhook:", error)
+      // Don't fail the upload if webhook fails, just log the error
+    }
 
     return NextResponse.json(
       {
