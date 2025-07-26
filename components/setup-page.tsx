@@ -9,7 +9,7 @@ export default function SetupPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-4xl w-full space-y-8">
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold">ChatGPT Clone Setup</h1>
+          <h1 className="text-4xl font-bold">Mentora Setup</h1>
           <p className="text-muted-foreground text-lg">Configure your environment variables to get started</p>
         </div>
 
@@ -89,7 +89,7 @@ export default function SetupPage() {
         <Card>
           <CardHeader>
             <CardTitle>Setup Instructions</CardTitle>
-            <CardDescription>Follow these steps to configure your ChatGPT clone</CardDescription>
+            <CardDescription>Follow these steps to configure your Mentora </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">

@@ -202,7 +202,7 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center" aria-hidden="true">
               <MessageSquare className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">ChatGPT</span>
+            <span className="text-xl font-bold">Mentora </span>
             <Button variant="ghost" size="sm" className="ml-auto h-6 px-2 text-xs">
               Get Plus
             </Button>
@@ -228,7 +228,7 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center" aria-hidden="true">
               <MessageSquare className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">ChatGPT</span>
+            <span className="text-xl font-bold">Mentora </span>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -246,7 +246,7 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
           <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center" aria-hidden="true">
             <MessageSquare className="w-5 h-5 text-primary-foreground" />
           </div>
-          <span className="text-xl font-bold">ChatGPT</span>
+          <span className="text-xl font-bold">Mentora </span>
           <Button variant="ghost" size="sm" className="ml-auto h-6 px-2 text-xs">
             Get Plus
           </Button>

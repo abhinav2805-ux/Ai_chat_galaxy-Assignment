@@ -28,7 +28,7 @@ export default async function LandingPage() {
             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
               <MessageSquare className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="text-xl font-bold">ChatGPT Clone</span>
+            <span className="text-xl font-bold">Mentora </span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/sign-in">
@@ -302,7 +302,7 @@ export default async function LandingPage() {
                 <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                   <MessageSquare className="w-5 h-5 text-primary-foreground" />
                 </div>
-                <span className="text-xl font-bold">ChatGPT Clone</span>
+                <span className="text-xl font-bold">Mentora </span>
               </div>
               <p className="text-muted-foreground">
                 The future of document interaction powered by AI.
@@ -334,7 +334,7 @@ export default async function LandingPage() {
             </div>
           </div>
           <div className="border-t border-border/40 mt-8 pt-8 text-center text-muted-foreground">
-            <p>&copy; 2024 ChatGPT Clone. All rights reserved.</p>
+            <p>&copy; 2024 Mentora . All rights reserved.</p>
           </div>
         </div>
       </footer>

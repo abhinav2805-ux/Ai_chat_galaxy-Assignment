@@ -9,8 +9,8 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "ChatGPT Clone",
-  description: "A ChatGPT clone built with Next.js and AI SDK",
+  title: "Mentora ",
+  description: "A Mentora built with Next.js and AI SDK",
     generator: 'v0.dev'
 }
 
