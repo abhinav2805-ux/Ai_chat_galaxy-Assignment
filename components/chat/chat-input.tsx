@@ -1,12 +1,13 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, type KeyboardEvent, ChangeEvent, FormEvent } from "react"
+import { useState, useRef, type KeyboardEvent, ChangeEvent, FormEvent, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Send, Mic, Paperclip, X } from "lucide-react"
+import { Send, Mic, Paperclip, X, MicOff, Volume2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { useVoiceRecorder } from "@/hooks/use-voice-recorder"
 
 interface ChatInputProps {
   input: string
@@ -24,10 +25,42 @@ export default function ChatInput({
   conversationId,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [isRecording, setIsRecording] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  
+  // Voice recording hook
+  const {
+    isRecording,
+    isSupported,
+    transcript,
+    startRecording,
+    stopRecording,
+    resetTranscript,
+    error
+  } = useVoiceRecorder()
+
+  // Update input when transcript changes
+  useEffect(() => {
+    if (transcript && !isRecording) {
+      // Update the input with the transcript
+      const syntheticEvent = {
+        target: { value: transcript }
+      } as React.ChangeEvent<HTMLTextAreaElement>
+      handleInputChange(syntheticEvent)
+    }
+  }, [transcript, isRecording, handleInputChange])
+
+  // Show error toast if voice recording fails
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Voice Recording Error",
+        description: error,
+        variant: "destructive",
+      })
+    }
+  }, [error, toast])
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -64,6 +97,26 @@ export default function ChatInput({
     handleSubmit(e, formData)
     setFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
+    resetTranscript() // Clear transcript after sending
+  }
+
+  const handleVoiceToggle = async () => {
+    if (isRecording) {
+      stopRecording()
+    } else {
+      await startRecording()
+    }
+  }
+
+  const handleClearVoice = () => {
+    resetTranscript()
+    // Clear the input if it contains the transcript
+    if (input === transcript) {
+      const syntheticEvent = {
+        target: { value: '' }
+      } as React.ChangeEvent<HTMLTextAreaElement>
+      handleInputChange(syntheticEvent)
+    }
   }
 
   return (
@@ -90,18 +143,55 @@ export default function ChatInput({
               </div>
             </div>
             <div className="flex items-center gap-1" role="toolbar" aria-label="Input actions">
+              {/* Voice Recording Button */}
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className={cn("h-8 w-8 rounded-full", isRecording && "bg-red-500 text-white")}
-                onClick={() => setIsRecording(!isRecording)}
-                aria-label={isRecording ? "Stop recording" : "Start voice recording"}
+                className={cn(
+                  "h-8 w-8 rounded-full transition-all duration-200 voice-button",
+                  isRecording 
+                    ? "voice-recording-active recording-pulse" 
+                    : "hover:bg-muted"
+                )}
+                onClick={handleVoiceToggle}
+                disabled={!isSupported || isLoading}
+                aria-label={
+                  isRecording 
+                    ? "Stop voice recording" 
+                    : "Start voice recording"
+                }
                 aria-pressed={isRecording}
-                title={isRecording ? "Stop recording" : "Start voice recording"}
+                title={
+                  !isSupported 
+                    ? "Voice recording not supported in this browser" 
+                    : isRecording 
+                      ? "Stop recording" 
+                      : "Start recording"
+                }
               >
-                <Mic className="h-4 w-4" />
+                {isRecording ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
               </Button>
+
+              {/* Clear Voice Button - only show when there's a transcript */}
+              {transcript && !isRecording && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 rounded-full hover:bg-muted"
+                  onClick={handleClearVoice}
+                  aria-label="Clear voice transcript"
+                  title="Clear voice transcript"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+
               <label className="cursor-pointer h-8 w-8 flex items-center justify-center rounded-full hover:bg-muted transition-colors" aria-label="Attach file">
                 <Paperclip className="h-4 w-4" />
                 <input
@@ -134,6 +224,50 @@ export default function ChatInput({
               )}
             </div>
           </div>
+          
+          {/* Voice Recording Status */}
+          {isRecording && (
+            <div 
+              className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2"
+              role="status"
+              aria-live="polite"
+              aria-label="Voice recording in progress"
+            >
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-red-600">Recording... Click to stop</span>
+              {transcript && (
+                <div className="flex-1 text-sm text-muted-foreground">
+                  "{transcript}"
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Voice Transcript Preview */}
+          {transcript && !isRecording && (
+            <div 
+              className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg transcript-preview transcript-enter"
+              role="status"
+              aria-live="polite"
+              aria-label="Voice transcript ready"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Volume2 className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium text-green-600">Voice Transcript</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs ml-auto"
+                  onClick={handleClearVoice}
+                  aria-label="Clear transcript"
+                >
+                  Clear
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">{transcript}</p>
+            </div>
+          )}
           
           {/* File preview */}
           {file && (
@@ -168,19 +302,6 @@ export default function ChatInput({
             </div>
           )}
 
-          {/* Recording indicator */}
-          {isRecording && (
-            <div 
-              className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2"
-              role="status"
-              aria-live="polite"
-              aria-label="Recording in progress"
-            >
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-red-600">Recording... Click to stop</span>
-            </div>
-          )}
-
           {/* Loading indicator */}
           {isLoading && (
             <div 
@@ -191,6 +312,19 @@ export default function ChatInput({
             >
               <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
               <span className="text-sm text-muted-foreground">AI is thinking...</span>
+            </div>
+          )}
+
+          {/* Voice Recording Not Supported */}
+          {!isSupported && (
+            <div 
+              className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg"
+              role="alert"
+              aria-label="Voice recording not supported"
+            >
+              <p className="text-sm text-yellow-600">
+                Voice recording is not supported in this browser. Please use Chrome, Edge, or Safari.
+              </p>
             </div>
           )}
         </form>

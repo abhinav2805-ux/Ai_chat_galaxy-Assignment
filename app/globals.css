@@ -294,3 +294,81 @@
     color: black !important;
   }
 }
+
+/* Voice Recording Animations */
+@keyframes recording-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+.recording-pulse {
+  animation: recording-pulse 1.5s ease-in-out infinite;
+}
+
+/* Voice recording button states */
+.voice-recording-active {
+  background: linear-gradient(45deg, #ef4444, #dc2626);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.voice-recording-active:hover {
+  background: linear-gradient(45deg, #dc2626, #b91c1c);
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+}
+
+/* Transcript animations */
+.transcript-enter {
+  animation: slideInUp 0.3s ease-out;
+}
+
+.transcript-exit {
+  animation: slideOutDown 0.3s ease-in;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Focus indicators for voice recording */
+.voice-button:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 50%;
+}
+
+/* High contrast mode for voice recording */
+@media (prefers-contrast: high) {
+  .voice-recording-active {
+    background: #dc2626 !important;
+    border: 2px solid #ffffff !important;
+  }
+  
+  .transcript-preview {
+    border: 2px solid #000000 !important;
+    background: #ffffff !important;
+  }
+}
