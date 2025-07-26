@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Edit2, Check, X, Copy, RotateCcw, FileText, File, Image, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import PDFViewer from "@/components/pdf-viewer"
 
 interface Message {
   _id?: string // MongoDB ObjectId
@@ -18,6 +19,7 @@ interface Message {
     name: string
     type: string
     size?: number
+    url?: string
   }
 }
 
@@ -43,6 +45,7 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
 
@@ -162,6 +165,36 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
     }
   }
 
+  const handleViewFile = () => {
+    if (!message.attachedFile) return
+
+    if (message.attachedFile.type.includes('pdf')) {
+      setIsPDFViewerOpen(true)
+    } else {
+      // For non-PDF files, show a toast for now
+      toast({
+        title: "File Preview",
+        description: `Opening ${message.attachedFile.name}`,
+      })
+    }
+  }
+
+  const handleDownloadFile = () => {
+    if (!message.attachedFile?.url) {
+      toast({
+        title: "Download Error",
+        description: "File URL not available",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = message.attachedFile.url
+    link.download = message.attachedFile.name
+    link.click()
+  }
+
   return (
     <div 
       className={cn("group flex gap-4 message-enter", isUser ? "justify-end" : "justify-start")}
@@ -216,21 +249,28 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
                 </div>
               )}
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-3 text-xs"
-              onClick={() => {
-                // For now, just show a toast. In a real app, you'd implement file viewing/downloading
-                toast({
-                  title: "File Preview",
-                  description: `Opening ${message.attachedFile.name}`,
-                })
-              }}
-              aria-label={`View ${message.attachedFile.name}`}
-            >
-              {message.attachedFile.type.includes('pdf') ? 'View PDF' : 'View File'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-3 text-xs"
+                onClick={handleViewFile}
+                aria-label={`View ${message.attachedFile.name}`}
+              >
+                {message.attachedFile.type.includes('pdf') ? 'View PDF' : 'View File'}
+              </Button>
+              {message.attachedFile.url && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-3 text-xs"
+                  onClick={handleDownloadFile}
+                  aria-label={`Download ${message.attachedFile.name}`}
+                >
+                  <Download className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -359,6 +399,16 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
           <AvatarImage src="/placeholder-user.jpg" alt="User" />
           <AvatarFallback>U</AvatarFallback>
         </Avatar>
+      )}
+
+      {/* PDF Viewer */}
+      {message.attachedFile?.type.includes('pdf') && message.attachedFile.url && (
+        <PDFViewer
+          file={message.attachedFile.url}
+          fileName={message.attachedFile.name}
+          isOpen={isPDFViewerOpen}
+          onClose={() => setIsPDFViewerOpen(false)}
+        />
       )}
     </div>
   )

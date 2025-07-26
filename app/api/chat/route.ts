@@ -4,6 +4,7 @@ import connectToDB from "@/lib/db"
 import User from "@/lib/models/user.model"
 import Conversation from "@/lib/models/conversation.model"
 import Message from "@/lib/models/message.model"
+import { saveFile, getFileUrl } from "@/lib/file-storage"
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY || '');
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
@@ -109,6 +110,19 @@ export async function POST(req: Request) {
     }
 
     // Save user message
+    let fileUrl: string | undefined;
+    
+    if (file) {
+      try {
+        const savedFilePath = await saveFile(file, conversation._id.toString());
+        fileUrl = getFileUrl(savedFilePath);
+        console.log("[CHAT_POST] File saved:", fileUrl);
+      } catch (error) {
+        console.error("[CHAT_POST] Error saving file:", error);
+        // Continue without file URL if saving fails
+      }
+    }
+
     const userMessage = new Message({
       conversationId: conversation._id,
       content: prompt,
@@ -117,6 +131,7 @@ export async function POST(req: Request) {
         name: file.name,
         type: file.type,
         size: file.size,
+        url: fileUrl,
       } : undefined,
     });
     await userMessage.save();

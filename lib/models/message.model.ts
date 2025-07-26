@@ -8,6 +8,7 @@ export interface IMessage extends Document {
     name: string
     type: string
     size?: number
+    url?: string
   }
   createdAt: Date
   updatedAt: Date
@@ -40,6 +41,10 @@ const MessageSchema = new Schema<IMessage>(
       },
       size: {
         type: Number,
+        required: false,
+      },
+      url: {
+        type: String,
         required: false,
       },
     },
