@@ -266,20 +266,24 @@ export default function ChatInterface({ conversationId }: ChatInterfaceProps) {
         setCurrentConversationId(conversationId)
         router.push(`/chat/${conversationId}`)
       }} />
-      <div className="flex-1 flex flex-col overflow-y-auto">
-        <MessageList 
-          messages={streamMessages} 
-          isLoading={isLoading || isStreaming || isEditing} 
-          onEditMessage={handleEditMessage}
-          isEditing={isEditing}
-        />
-        <ChatInput
-          input={input}
-          handleInputChange={handleInputChange}
-          handleSubmit={customHandleSubmit} // Use custom submit
-          isLoading={isStreaming}
-          conversationId={currentConversationId} // Pass current ID
-        />
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 overflow-hidden">
+          <MessageList 
+            messages={streamMessages} 
+            isLoading={isLoading || isStreaming || isEditing} 
+            onEditMessage={handleEditMessage}
+            isEditing={isEditing}
+          />
+        </div>
+        <div className="flex-shrink-0">
+          <ChatInput
+            input={input}
+            handleInputChange={handleInputChange}
+            handleSubmit={customHandleSubmit} // Use custom submit
+            isLoading={isStreaming}
+            conversationId={currentConversationId} // Pass current ID
+          />
+        </div>
       </div>
     </div>
   )

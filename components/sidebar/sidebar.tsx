@@ -38,6 +38,11 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
     fetchConversations()
   }, [])
 
+  // Close sidebar when route changes (mobile)
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [router])
+
   const fetchConversations = async () => {
     setIsLoading(true)
     try {
@@ -156,8 +161,8 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
 
   // Responsive sidebar classes
   const sidebarClass = cn(
-    "fixed z-40 top-0 left-0 w-64 bg-muted/30 border-r border-border flex flex-col h-full transition-transform duration-300 lg:static lg:translate-x-0 lg:h-screen",
-    sidebarOpen ? "translate-x-0" : "-translate-x-full",
+    "fixed z-50 top-0 left-0 w-80 bg-background border-r border-border flex flex-col h-full transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 lg:h-screen lg:z-auto",
+    sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
   )
 
   // Prevent hydration mismatch by not rendering theme-dependent content until mounted
@@ -189,15 +194,20 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
       <Button
         variant="ghost"
         size="icon"
-        className="lg:hidden fixed top-4 left-4 z-50"
+        className="lg:hidden fixed top-4 left-4 z-50 bg-background/80 backdrop-blur-sm border border-border shadow-lg"
         onClick={() => setSidebarOpen((v) => !v)}
       >
-        <Menu className="h-6 w-6" />
+        <Menu className="h-5 w-5" />
       </Button>
-      {/* Overlay for mobile */}
+      
+      {/* Dark overlay for mobile */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden" 
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
+      
       <div className={sidebarClass}>
         {/* Header */}
         <div className="p-4 border-b border-border">
@@ -283,7 +293,7 @@ export default function Sidebar({ onNewChat }: { onNewChat?: (id: string) => voi
           {/* Profile dropdown with logout */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <div className="flex items-center gap-2 cursor-pointer">
+              <div className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
                   {user?.firstName?.[0] || "U"}
                 </div>
