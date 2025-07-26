@@ -4,6 +4,11 @@ export interface IMessage extends Document {
   conversationId: mongoose.Types.ObjectId
   content: string
   role: "user" | "assistant"
+  attachedFile?: {
+    name: string
+    type: string
+    size?: number
+  }
   createdAt: Date
   updatedAt: Date
 }
@@ -23,6 +28,20 @@ const MessageSchema = new Schema<IMessage>(
       type: String,
       enum: ["user", "assistant"],
       required: true,
+    },
+    attachedFile: {
+      name: {
+        type: String,
+        required: false,
+      },
+      type: {
+        type: String,
+        required: false,
+      },
+      size: {
+        type: Number,
+        required: false,
+      },
     },
   },
   {

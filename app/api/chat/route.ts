@@ -113,6 +113,11 @@ export async function POST(req: Request) {
       conversationId: conversation._id,
       content: prompt,
       role: "user",
+      attachedFile: file ? {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      } : undefined,
     });
     await userMessage.save();
     console.log("[CHAT_POST] User message saved")
@@ -201,7 +206,6 @@ export async function POST(req: Request) {
     return new Response(stream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
         'X-Conversation-Id': conversation._id.toString(),
       },
     });

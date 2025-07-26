@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { Edit2, Check, X, Copy, RotateCcw, FileText, File, Image } from "lucide-react"
+import { Edit2, Check, X, Copy, RotateCcw, FileText, File, Image, Download } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Message {
@@ -30,9 +30,13 @@ interface MessageBubbleProps {
 }
 
 const getFileIcon = (fileType: string) => {
-  if (fileType.startsWith('image/')) return <Image className="h-4 w-4" />
-  if (fileType.includes('pdf')) return <FileText className="h-4 w-4" />
-  return <File className="h-4 w-4" />
+  if (fileType.startsWith('image/')) return <Image className="h-5 w-5" />
+  if (fileType.includes('pdf')) return <FileText className="h-5 w-5" />
+  if (fileType.includes('doc') || fileType.includes('word')) return <FileText className="h-5 w-5" />
+  if (fileType.includes('txt')) return <FileText className="h-5 w-5" />
+  if (fileType.includes('rtf')) return <FileText className="h-5 w-5" />
+  if (fileType.includes('epub')) return <FileText className="h-5 w-5" />
+  return <File className="h-5 w-5" />
 }
 
 export default function MessageBubble({ message, onEdit, isEditing: globalEditing, messageIndex, totalMessages }: MessageBubbleProps) {
@@ -177,19 +181,56 @@ export default function MessageBubble({ message, onEdit, isEditing: globalEditin
         {message.attachedFile && (
           <div 
             className={cn(
-              "flex items-center gap-2 p-3 rounded-lg border",
-              isUser ? "bg-primary/10 border-primary/20" : "bg-muted/50 border-border"
+              "flex items-center gap-3 p-4 rounded-lg border-2 shadow-sm file-attachment",
+              isUser 
+                ? "bg-primary/5 border-primary/30 hover:bg-primary/10" 
+                : "bg-muted/30 border-border hover:bg-muted/50",
+              message.attachedFile.type.includes('pdf') && "file-attachment-pdf",
+              message.attachedFile.type.includes('doc') && "file-attachment-doc",
+              message.attachedFile.type.startsWith('image/') && "file-attachment-image"
             )}
             role="region"
             aria-label="Attached file"
           >
-            {getFileIcon(message.attachedFile.type)}
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate">{message.attachedFile.name}</div>
-              <div className="text-xs text-muted-foreground">
-                {message.attachedFile.type} {message.attachedFile.size && `• ${(message.attachedFile.size / 1024).toFixed(1)} KB`}
-              </div>
+            <div className={cn(
+              "p-2 rounded-lg file-icon",
+              message.attachedFile.type.includes('pdf') 
+                ? "bg-red-500/10 text-red-600" 
+                : message.attachedFile.type.includes('doc')
+                ? "bg-blue-500/10 text-blue-600"
+                : "bg-green-500/10 text-green-600"
+            )}>
+              {getFileIcon(message.attachedFile.type)}
             </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold truncate text-foreground">
+                {message.attachedFile.name}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {message.attachedFile.type.toUpperCase()} 
+                {message.attachedFile.size && ` • ${(message.attachedFile.size / 1024).toFixed(1)} KB`}
+              </div>
+              {message.attachedFile.type.includes('pdf') && (
+                <div className="pdf-indicator mt-2">
+                  PDF Document
+                </div>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-3 text-xs"
+              onClick={() => {
+                // For now, just show a toast. In a real app, you'd implement file viewing/downloading
+                toast({
+                  title: "File Preview",
+                  description: `Opening ${message.attachedFile.name}`,
+                })
+              }}
+              aria-label={`View ${message.attachedFile.name}`}
+            >
+              {message.attachedFile.type.includes('pdf') ? 'View PDF' : 'View File'}
+            </Button>
           </div>
         )}
 
