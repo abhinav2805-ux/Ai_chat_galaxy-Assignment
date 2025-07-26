@@ -10,7 +10,7 @@ A pixel-perfect Mentora built with Next.js, featuring advanced AI capabilities, 
 
 ## 🚀 Live Demo
 
-**[View Live Demo](https://your-app-url.vercel.app)**
+**[ Live Link](https://ai-chat-galaxy-assignment.vercel.app/)**
 
 ## ✨ Features
 
